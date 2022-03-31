@@ -36,42 +36,40 @@
 #endif
 // }}} headers
 
+
 // need char str[64]
-  void
-time_stamp(char * str, const size_t size)
+void time_stamp(char *str, const size_t size)
 {
-  time_t now;
-  struct tm nowtm;
-  time(&now);
-  localtime_r(&now, &nowtm);
-  strftime(str, size, "%F %T %z", &nowtm);
+    time_t now;
+    struct tm nowtm;
+    time(&now);
+    localtime_r(&now, &nowtm);
+    strftime(str, size, "%F %T %z", &nowtm);
 }
 
-  void
-thread_get_name(const pthread_t pt, char * const name, const size_t len)
+void thread_get_name(const pthread_t pt, char *const name, const size_t len)
 {
 #if defined(__linux__)
-  pthread_getname_np(pt, name, len);
+    pthread_getname_np(pt, name, len);
 #elif defined(__FreeBSD__)
-  pthread_get_name_np(pt, name, len);
+    pthread_get_name_np(pt, name, len);
 #elif defined(__APPLE__) && defined(__MACH__)
-  (void)pt;
-  (void)len;
-  strcpy(name, "unknown"); // TODO
-#endif // OS
+    (void) pt;
+    (void) len;
+    strcpy(name, "unknown");  // TODO
+#endif  // OS
 }
 
-  void
-thread_set_name(const pthread_t pt, const char * const name)
+void thread_set_name(const pthread_t pt, const char *const name)
 {
 #if defined(__linux__)
-  pthread_setname_np(pt, name);
+    pthread_setname_np(pt, name);
 #elif defined(__FreeBSD__)
-  pthread_set_name_np(pt, name);
+    pthread_set_name_np(pt, name);
 #elif defined(__APPLE__) && defined(__MACH__)
-  (void)pt;
-  (void)name; // TODO
-#endif // OS
+    (void) pt;
+    (void) name;  // TODO
+#endif  // OS
 }
 
 
@@ -149,7 +147,7 @@ static void debug_wait_gdb(void *const bt_state)
 
 
 #ifndef NDEBUG
-static void * debug_bt_state = NULL;
+static void *debug_bt_state = NULL;
 void debug_assert(const bool v)
 {
     if (!v)
