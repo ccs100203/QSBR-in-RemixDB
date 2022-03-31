@@ -36,43 +36,6 @@
 #endif
 // }}} headers
 
-
-// need char str[64]
-void time_stamp(char *str, const size_t size)
-{
-    time_t now;
-    struct tm nowtm;
-    time(&now);
-    localtime_r(&now, &nowtm);
-    strftime(str, size, "%F %T %z", &nowtm);
-}
-
-void thread_get_name(const pthread_t pt, char *const name, const size_t len)
-{
-#if defined(__linux__)
-    pthread_getname_np(pt, name, len);
-#elif defined(__FreeBSD__)
-    pthread_get_name_np(pt, name, len);
-#elif defined(__APPLE__) && defined(__MACH__)
-    (void) pt;
-    (void) len;
-    strcpy(name, "unknown");  // TODO
-#endif  // OS
-}
-
-void thread_set_name(const pthread_t pt, const char *const name)
-{
-#if defined(__linux__)
-    pthread_setname_np(pt, name);
-#elif defined(__FreeBSD__)
-    pthread_set_name_np(pt, name);
-#elif defined(__APPLE__) && defined(__MACH__)
-    (void) pt;
-    (void) name;  // TODO
-#endif  // OS
-}
-
-
 inline void cpu_pause(void)
 {
 #if defined(__x86_64__)
@@ -88,73 +51,9 @@ inline void cpu_cfence(void)
     atomic_thread_fence(MO_ACQ_REL);
 }
 
-
-static void debug_wait_gdb(void *const bt_state)
-{
-    if (bt_state) {
-#if defined(BACKTRACE)
-        dprintf(2, "Backtrace :\n");
-        u32 level = 0;
-        backtrace_full(debug_bt_state, 1, debug_bt_print_cb, debug_bt_error_cb,
-                       &level);
-#endif        // BACKTRACE
-    } else {  // fallback to execinfo if no backtrace or initialization failed
-        void *array[64];
-        const int size = backtrace(array, 64);
-        dprintf(2, "Backtrace (%d):\n", size - 1);
-        backtrace_symbols_fd(array + 1, size - 1, 2);
-    }
-
-    abool v = true;
-    char timestamp[32];
-    time_stamp(timestamp, 32);
-    char threadname[32] = {};
-    thread_get_name(pthread_self(), threadname, 32);
-    strcat(threadname, "(!!)");
-    thread_set_name(pthread_self(), threadname);
-    char hostname[32];
-    gethostname(hostname, 32);
-
-    const char *const pattern =
-        "[Waiting GDB] %1$s %2$s @ %3$s\n"
-        "    Attach me: " TERMCLR(31) "sudo -Hi gdb -p %4$d" TERMCLR(0) "\n";
-    char buf[256];
-    sprintf(buf, pattern, timestamp, threadname, hostname, getpid());
-    write(2, buf, strlen(buf));
-
-    // to continue: gdb> set var v = 0
-    // to kill from shell: $ kill %pid; kill -CONT %pid
-
-    // uncomment this line to surrender the shell on error
-    // kill(getpid(), SIGSTOP); // stop burning cpu, once
-
-    static au32 nr_waiting = 0;
-    const u32 seq = atomic_fetch_add_explicit(&nr_waiting, 1, MO_RELAXED);
-    if (seq == 0) {
-        sprintf(buf, "/run/user/%u/.debug_wait_gdb_pid", getuid());
-        const int pidfd = open(buf, O_CREAT | O_TRUNC | O_WRONLY, 00644);
-        if (pidfd >= 0) {
-            dprintf(pidfd, "%u", getpid());
-            close(pidfd);
-        }
-    }
-
-#pragma nounroll
-    while (atomic_load_explicit(&v, MO_CONSUME))
-        sleep(1);
-}
-
-
-
 #ifndef NDEBUG
-static void *debug_bt_state = NULL;
-void debug_assert(const bool v)
-{
-    if (!v)
-        debug_wait_gdb(debug_bt_state);
-}
+#define debug_assert(v) assert(v)
 #endif
-
 
 // alloc cache-line aligned address
 void *yalloc(const size_t size)
@@ -162,7 +61,6 @@ void *yalloc(const size_t size)
     void *p;
     return (posix_memalign(&p, 64, size) == 0) ? p : NULL;
 }
-
 
 inline u32 crc32c_u64(const u32 crc, const u64 v)
 {
@@ -172,7 +70,6 @@ inline u32 crc32c_u64(const u32 crc, const u64 v)
     return (u32) __crc32cd(crc, v);
 #endif
 }
-
 
 // qsbr {{{
 #define QSBR_STATES_NR \

@@ -95,15 +95,6 @@ typedef uint8x16_t m128;
 #define PGSZ ((4096lu))
 // }}} const
 
-
-extern void time_stamp(char *str, const size_t size);
-
-extern void thread_get_name(const pthread_t pt,
-                            char *const name,
-                            const size_t len);
-
-extern void thread_set_name(const pthread_t pt, const char *const name);
-
 extern void cpu_pause(void);
 
 extern void cpu_cfence(void);
