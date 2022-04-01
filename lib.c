@@ -72,9 +72,8 @@ inline u32 crc32c_u64(const u32 crc, const u64 v)
 }
 
 // qsbr {{{
-#define QSBR_STATES_NR \
-    ((23))  // shard capacity; valid values are 3*8-1 == 23; 5*8-1 == 39; 7*8-1
-            // == 55
+// shard capacity; valid values are 3*8-1 == 23; 5*8-1 == 39; 7*8-1 == 55
+#define QSBR_STATES_NR ((23))
 #define QSBR_SHARD_BITS ((5))  // 2^n shards
 #define QSBR_SHARD_NR (((1u) << QSBR_SHARD_BITS))
 #define QSBR_SHARD_MASK ((QSBR_SHARD_NR - 1))

@@ -64,19 +64,6 @@ static_assert(sizeof(u32) == 4, "sizeof(u32)");
 static_assert(sizeof(u64) == 8, "sizeof(u64)");
 static_assert(sizeof(u128) == 16, "sizeof(u128)");
 
-#if defined(__x86_64__)
-typedef __m128i m128;
-#if defined(__AVX2__)
-typedef __m256i m256;
-#endif  // __AVX2__
-#if defined(__AVX512F__)
-typedef __m512i m512;
-#endif  // __AVX512F__
-#elif defined(__aarch64__)
-typedef uint8x16_t m128;
-#else
-#error Need x86_64 or AArch64.
-#endif
 // }}} types
 
 // defs {{{
