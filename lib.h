@@ -41,31 +41,6 @@
 extern "C" {
 #endif
 
-// types {{{
-typedef char s8;
-typedef short s16;
-typedef int s32;
-typedef long s64;
-typedef __int128_t s128;
-static_assert(sizeof(s8) == 1, "sizeof(s8)");
-static_assert(sizeof(s16) == 2, "sizeof(s16)");
-static_assert(sizeof(s32) == 4, "sizeof(s32)");
-static_assert(sizeof(s64) == 8, "sizeof(s64)");
-static_assert(sizeof(s128) == 16, "sizeof(s128)");
-
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long u64;
-typedef __uint128_t u128;
-static_assert(sizeof(u8) == 1, "sizeof(u8)");
-static_assert(sizeof(u16) == 2, "sizeof(u16)");
-static_assert(sizeof(u32) == 4, "sizeof(u32)");
-static_assert(sizeof(u64) == 8, "sizeof(u64)");
-static_assert(sizeof(u128) == 16, "sizeof(u128)");
-
-// }}} types
-
 // defs {{{
 #define likely(____x____) __builtin_expect(____x____, 1)
 #define unlikely(____x____) __builtin_expect(____x____, 0)
@@ -94,7 +69,7 @@ extern void debug_assert(const bool v);
 
 extern void *yalloc(const size_t size);
 
-extern u32 crc32c_u64(const u32 crc, const u64 v);
+extern uint32_t crc32c_u64(const uint32_t crc, const uint64_t v);
 
 // qsbr {{{
 // QSBR vs EBR (Quiescent-State vs Epoch Based Reclaimation)
@@ -106,9 +81,9 @@ extern u32 crc32c_u64(const u32 crc, const u64 v);
 struct qsbr;
 struct qsbr_ref {
 #ifdef QSBR_DEBUG
-    u64 debug[16];
+    uint64_t debug[16];
 #endif
-    u64 opaque[3];
+    uint64_t opaque[3];
 };
 
 extern struct qsbr *qsbr_create(void);
@@ -120,7 +95,7 @@ extern bool qsbr_register(struct qsbr *const q, struct qsbr_ref *const qref);
 extern void qsbr_unregister(struct qsbr *const q, struct qsbr_ref *const qref);
 
 // For READER: mark the beginning of critical section; like rcu_read_lock()
-extern void qsbr_update(struct qsbr_ref *const qref, const u64 v);
+extern void qsbr_update(struct qsbr_ref *const qref, const uint64_t v);
 
 // temporarily stop access the shared data to avoid blocking writers
 // READER can use qsbr_park (like rcu_read_unlock()) in conjunction with
@@ -132,7 +107,7 @@ extern void qsbr_park(struct qsbr_ref *const qref);
 extern void qsbr_resume(struct qsbr_ref *const qref);
 
 // WRITER: wait until all the readers have announced v=target with qsbr_update
-extern void qsbr_wait(struct qsbr *const q, const u64 target);
+extern void qsbr_wait(struct qsbr *const q, const uint64_t target);
 
 extern void qsbr_destroy(struct qsbr *const q);
 // }}} qsbr

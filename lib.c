@@ -62,12 +62,12 @@ void *yalloc(const size_t size)
     return (posix_memalign(&p, 64, size) == 0) ? p : NULL;
 }
 
-inline u32 crc32c_u64(const u32 crc, const u64 v)
+inline uint32_t crc32c_u64(const uint32_t crc, const uint64_t v)
 {
 #if defined(__x86_64__)
-    return (u32) _mm_crc32_u64(crc, v);
+    return (uint32_t) _mm_crc32_u64(crc, v);
 #elif defined(__aarch64__)
-    return (u32) __crc32cd(crc, v);
+    return (uint32_t) __crc32cd(crc, v);
 #endif
 }
 
@@ -81,8 +81,8 @@ inline u32 crc32c_u64(const u32 crc, const u64 v)
 struct qsbr_ref_real {
 #ifdef QSBR_DEBUG
     pthread_t ptid;  // 8
-    u32 status;      // 4
-    u32 nbt;         // 4 (number of backtrace frames)
+    uint32_t status;      // 4
+    uint32_t nbt;         // 4 (number of backtrace frames)
 #define QSBR_DEBUG_BTNR ((14))
     void *backtrace[QSBR_DEBUG_BTNR];
 #endif
@@ -97,7 +97,7 @@ static_assert(sizeof(struct qsbr_ref) == sizeof(struct qsbr_ref_real),
 // Quiescent-State-Based Reclamation RCU
 struct qsbr {
     struct qsbr_ref_real target;
-    u64 padding0[5];
+    uint64_t padding0[5];
     struct qshard {
         au64 bitmap;
         struct qsbr_ref_real *volatile ptrs[QSBR_STATES_NR];
@@ -113,13 +113,13 @@ struct qsbr *qsbr_create(void)
 
 static inline struct qshard *qsbr_shard(struct qsbr *const q, void *const ptr)
 {
-    const u32 sid = crc32c_u64(0, (u64) ptr) & QSBR_SHARD_MASK;
+    const uint32_t sid = crc32c_u64(0, (uint64_t) ptr) & QSBR_SHARD_MASK;
     debug_assert(sid < QSBR_SHARD_NR);
     return &(q->shards[sid]);
 }
 
 static inline void qsbr_write_qstate(struct qsbr_ref_real *const ref,
-                                     const u64 v)
+                                     const uint64_t v)
 {
     atomic_store_explicit(&ref->qstate, v, MO_RELAXED);
 }
@@ -131,12 +131,12 @@ bool qsbr_register(struct qsbr *const q, struct qsbr_ref *const qref)
     qsbr_write_qstate(ref, 0);
 
     do {
-        u64 bits = atomic_load_explicit(&shard->bitmap, MO_CONSUME);
-        const u32 pos = (u32) __builtin_ctzl(~bits);
+        uint64_t bits = atomic_load_explicit(&shard->bitmap, MO_CONSUME);
+        const uint32_t pos = (uint32_t) __builtin_ctzl(~bits);
         if (unlikely(pos >= QSBR_STATES_NR))
             return false;
 
-        const u64 bits1 = bits | (1lu << pos);
+        const uint64_t bits1 = bits | (1lu << pos);
         if (atomic_compare_exchange_weak_explicit(&shard->bitmap, &bits, bits1,
                                                   MO_ACQUIRE, MO_RELAXED)) {
             shard->ptrs[pos] = ref;
@@ -144,7 +144,7 @@ bool qsbr_register(struct qsbr *const q, struct qsbr_ref *const qref)
             ref->pptr = &(shard->ptrs[pos]);
             ref->park = &q->target;
 #ifdef QSBR_DEBUG
-            ref->ptid = (u64) pthread_self();
+            ref->ptid = (uint64_t) pthread_self();
             ref->tid = 0;
             ref->status = 1;
             ref->nbt = backtrace(ref->backtrace, QSBR_DEBUG_BTNR);
@@ -158,7 +158,7 @@ void qsbr_unregister(struct qsbr *const q, struct qsbr_ref *const qref)
 {
     struct qsbr_ref_real *const ref = (typeof(ref)) qref;
     struct qshard *const shard = qsbr_shard(q, ref);
-    const u32 pos = (u32)(ref->pptr - shard->ptrs);
+    const uint32_t pos = (uint32_t)(ref->pptr - shard->ptrs);
     debug_assert(pos < QSBR_STATES_NR);
     debug_assert(shard->bitmap & (1lu << pos));
 
@@ -176,7 +176,7 @@ void qsbr_unregister(struct qsbr *const q, struct qsbr_ref *const qref)
         cpu_pause();
 }
 
-inline void qsbr_update(struct qsbr_ref *const qref, const u64 v)
+inline void qsbr_update(struct qsbr_ref *const qref, const uint64_t v)
 {
     struct qsbr_ref_real *const ref = (typeof(ref)) qref;
     debug_assert((*ref->pptr) == ref);  // must be unparked
@@ -205,28 +205,28 @@ inline void qsbr_resume(struct qsbr_ref *const qref)
 }
 
 // waiters needs external synchronization
-void qsbr_wait(struct qsbr *const q, const u64 target)
+void qsbr_wait(struct qsbr *const q, const uint64_t target)
 {
     cpu_cfence();
     qsbr_write_qstate(&q->target, target);
-    u64 cbits = 0;           // check-bits; each bit corresponds to a shard
-    u64 bms[QSBR_SHARD_NR];  // copy of all bitmap
+    uint64_t cbits = 0;           // check-bits; each bit corresponds to a shard
+    uint64_t bms[QSBR_SHARD_NR];  // copy of all bitmap
     // take an unsafe snapshot of active users
-    for (u32 i = 0; i < QSBR_SHARD_NR; i++) {
+    for (uint32_t i = 0; i < QSBR_SHARD_NR; i++) {
         bms[i] = atomic_load_explicit(&q->shards[i].bitmap, MO_CONSUME);
         if (bms[i])
             cbits |= (1lu << i);  // set to 1 if [i] has ptrs
     }
 
     while (cbits) {
-        for (u64 ctmp = cbits; ctmp; ctmp &= (ctmp - 1)) {
+        for (uint64_t ctmp = cbits; ctmp; ctmp &= (ctmp - 1)) {
             // shard id
-            const u32 i = (u32) __builtin_ctzl(ctmp);
+            const uint32_t i = (uint32_t) __builtin_ctzl(ctmp);
             struct qshard *const shard = &(q->shards[i]);
-            const u64 bits1 = atomic_fetch_or_explicit(&(shard->bitmap),
+            const uint64_t bits1 = atomic_fetch_or_explicit(&(shard->bitmap),
                                                        1lu << 63, MO_ACQUIRE);
-            for (u64 bits = bms[i]; bits; bits &= (bits - 1)) {
-                const u64 bit = bits & -bits;  // extract lowest bit
+            for (uint64_t bits = bms[i]; bits; bits &= (bits - 1)) {
+                const uint64_t bit = bits & -bits;  // extract lowest bit
                 if (((bits1 & bit) == 0) ||
                     (atomic_load_explicit(
                          &(shard->ptrs[__builtin_ctzl(bit)]->qstate),
