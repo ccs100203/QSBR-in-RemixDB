@@ -133,6 +133,7 @@ bool qsbr_register(struct qsbr *const q, struct qsbr_ref *const qref)
     do {
         uint64_t bits = atomic_load_explicit(&shard->bitmap, MO_CONSUME);
         const uint32_t pos = (uint32_t) __builtin_ctzl(~bits);
+        // printf("bits: %lx, pos: %u\n", bits, pos);
         if (unlikely(pos >= QSBR_STATES_NR))
             return false;
 
@@ -219,6 +220,7 @@ void qsbr_wait(struct qsbr *const q, const uint64_t target)
     }
 
     while (cbits) {
+        // printf("before cbits: %lx\n", cbits);
         for (uint64_t ctmp = cbits; ctmp; ctmp &= (ctmp - 1)) {
             // shard id
             const uint32_t i = (uint32_t) __builtin_ctzl(ctmp);
@@ -228,16 +230,17 @@ void qsbr_wait(struct qsbr *const q, const uint64_t target)
             for (uint64_t bits = bms[i]; bits; bits &= (bits - 1)) {
                 const uint64_t bit = bits & -bits;  // extract lowest bit
                 if (((bits1 & bit) == 0) ||
-                    (atomic_load_explicit(
-                         &(shard->ptrs[__builtin_ctzl(bit)]->qstate),
-                         MO_CONSUME) == target))
-                    bms[i] &= ~bit;
+                    (atomic_load_explicit(&(shard->ptrs[__builtin_ctzl(bit)]->qstate), MO_CONSUME) == target)) {
+                        // printf("shard: %d, bitmap: %lx => %lx\n", i, bms[i], bms[i] & ~bit);
+                        bms[i] &= ~bit;
+                    }
             }
             (void) atomic_fetch_and_explicit(&(shard->bitmap), ~(1lu << 63),
                                              MO_RELEASE);
             if (bms[i] == 0)
                 cbits &= ~(1lu << i);
         }
+        // printf("after  cbits: %lx\n", cbits);
 #if defined(CORR)
         corr_yield();
 #endif

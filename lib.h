@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdint.h>
 
 // Linux headers
 #include <sys/mman.h>
