@@ -6,13 +6,6 @@
 uint64_t *data[NUM_VER+1];
 atomic_uint_fast64_t version = 0;
 
-// #define OUTPUT_TO_BUF 1
-#ifdef OUTPUT_TO_BUF
-pthread_mutex_t mu;
-char output_buf[50000];
-char output_len = 0;
-#endif
-
 void *writer(void *arg)
 {
     struct qsbr *q = (struct qsbr *) arg;
@@ -20,27 +13,14 @@ void *writer(void *arg)
         sleep(2);
         atomic_fetch_add_explicit(&version, 1, memory_order_relaxed);
         
-    #ifdef OUTPUT_TO_BUF
-        pthread_mutex_lock(&mu);
-        sprintf(output_buf+output_len, "\n---- begin of grace period: %lu ------\n", version);
-        output_len = strlen(output_buf);
-        pthread_mutex_unlock(&mu);
-    #else
         printf("\n---- begin of grace period: %lu -----\n", atomic_load_explicit(&version, memory_order_relaxed));
         fflush(stdout);
-    #endif
 
         qsbr_wait(q, atomic_load_explicit(&version, memory_order_relaxed));
-        
-    #ifdef OUTPUT_TO_BUF
-        pthread_mutex_lock(&mu);
-        sprintf(output_buf+output_len, "---- end of grace period: %lu ------\n\n", version);
-        output_len = strlen(output_buf);
-        pthread_mutex_unlock(&mu);
-    #else
+
         printf("---- end of grace period: %lu ------\n\n", atomic_load_explicit(&version, memory_order_relaxed));
         fflush(stdout);
-    #endif
+
         // reclamation memory
         free(data[atomic_load_explicit(&version, memory_order_acquire)-1]);
         fflush(stdout);
@@ -60,15 +40,8 @@ void *reader(void *arg)
         // fflush(stdout);
         sleep(rand() % 3 + 2); // hold data and do nothing
         
-    #ifdef OUTPUT_TO_BUF
-        pthread_mutex_lock(&mu);
-        sprintf(output_buf+output_len, "tid: %d release data, %lu\n", gettid(), tmp);
-        output_len = strlen(output_buf);
-        pthread_mutex_unlock(&mu);
-    #else
         printf("tid: %d release data, %lu\n", gettid(), tmp);
         fflush(stdout);
-    #endif
 
         qsbr_update(ref, atomic_load_explicit(&version, memory_order_relaxed)); // on quiescent
 
@@ -145,8 +118,5 @@ int main()
         qsbr_unregister(q, &qrefs[i]);
     }
     qsbr_destroy(q);
-#ifdef OUTPUT_TO_BUF
-    printf("%s", output_buf);
-#endif
     return 0;
 }
